@@ -22,7 +22,7 @@
 <body>
 <div class="wrap">
   <header class="hero">
-    <div class="eyebrow">Engineering students · 5-minute speeches</div>
+    <div class="eyebrow">II-CCN S1 students · 5-minute speeches</div>
     <h1>Choose your topic.</h1>
     <p>Claim one topic for your speech. Topics marked as taken are reserved. You can change your selection later; your previous topic will become available again.</p>
   </header>
@@ -144,7 +144,7 @@
       const title=document.createElement('div');title.className='topic-title';title.textContent=t.topic;
       const state=document.createElement('span');state.className='state '+(t.mine?'mine':t.taken?'':'free');state.textContent=t.mine?'✓ Your topic':t.taken?'Taken':'Available';
       body.append(cat,title,state);
-      if(t.taken&&!t.mine){const who=document.createElement('div');who.className='muted small';who.style.marginTop='5px';who.textContent=t.studentName?'Selected by '+t.studentName:'Already reserved';body.appendChild(who);}
+      if(t.taken&&!t.mine){const who=document.createElement('div');who.className='muted small';who.style.marginTop='5px';who.textContent=t.studentName?'Selected by '+t.studentName.slice(0,2)+'********':'Already reserved';body.appendChild(who);}
       card.append(radio,body);list.appendChild(card);
     });
     const available=userData.topics.filter(t=>!t.taken).length;
