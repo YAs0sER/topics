@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <meta charset="utf-8">
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <style>
+    :root{--ink:#172554;--muted:#64748b;--line:#e2e8f0;--paper:#f8fafc;--blue:#2563eb;--green:#15803d}
+    *{box-sizing:border-box}body{margin:0;background:var(--paper);color:#0f172a;font:15px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+    .wrap{max-width:1050px;margin:0 auto;padding:28px 18px 60px}.hero{background:linear-gradient(135deg,#172554,#1d4ed8);color:white;border-radius:22px;padding:28px 30px;margin-bottom:22px}
+    .eyebrow{text-transform:uppercase;letter-spacing:.14em;font-size:11px;font-weight:800;opacity:.78}.hero h1{margin:8px 0;font-size:clamp(28px,5vw,42px);line-height:1.1}.hero p{margin:10px 0 0;max-width:680px;color:#dbeafe}
+    .panel{background:white;border:1px solid var(--line);border-radius:18px;padding:20px;margin-bottom:18px;box-shadow:0 5px 18px #0f172a08}
+    .row{display:flex;gap:12px;align-items:center;flex-wrap:wrap}.row.between{justify-content:space-between}.muted{color:var(--muted)}.small{font-size:13px}
+    input[type=text],input[type=search]{width:100%;border:1px solid #cbd5e1;border-radius:10px;padding:12px 13px;font:inherit;background:white;color:#0f172a}
+    label{display:block;font-size:13px;font-weight:700;margin-bottom:6px}.field{flex:1;min-width:220px}.btn{border:0;border-radius:10px;padding:11px 15px;background:var(--blue);color:white;font-weight:750;font:inherit;cursor:pointer}.btn:disabled{opacity:.45;cursor:not-allowed}.btn.secondary{background:#e2e8f0;color:#1e293b}
+    .notice{padding:12px 14px;border-radius:12px;margin:12px 0;display:none}.notice.error{display:block;background:#fef2f2;color:#991b1b;border:1px solid #fecaca}.notice.success{display:block;background:#f0fdf4;color:#166534;border:1px solid #bbf7d0}.notice.info{display:block;background:#eff6ff;color:#1e40af;border:1px solid #bfdbfe}
+    .hidden{display:none!important}.toolbar{display:flex;gap:10px;flex-wrap:wrap;margin:16px 0}.toolbar input{flex:1;min-width:200px}.tabs{display:flex;gap:8px;flex-wrap:wrap}.tab{border:1px solid var(--line);background:white;border-radius:999px;padding:8px 12px;cursor:pointer;font:inherit;font-size:13px}.tab.active{background:#dbeafe;border-color:#93c5fd;color:#1d4ed8;font-weight:800}
+    .topic-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,330px),1fr));gap:12px}.topic{border:1px solid var(--line);border-radius:14px;padding:15px;display:flex;gap:12px;align-items:flex-start;background:white;min-width:0}.topic.available{cursor:pointer}.topic.available:hover{border-color:#93c5fd;box-shadow:0 3px 12px #2563eb10}.topic.selected{border:2px solid #2563eb;background:#eff6ff;padding:14px}.topic.taken{background:#f8fafc;color:#64748b}.topic input{margin-top:5px;accent-color:#2563eb}.topic-title{font-weight:700;line-height:1.35}.topic-category{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#64748b;font-weight:800;margin-bottom:5px}.state{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:800;border-radius:999px;padding:4px 8px;background:#f1f5f9;color:#475569;margin-top:9px}.state.free{background:#dcfce7;color:#166534}.state.mine{background:#dbeafe;color:#1d4ed8}.count{font-size:13px;color:var(--muted)}
+    .stickybar{position:sticky;bottom:10px;background:#ffffffed;backdrop-filter:blur(8px);border:1px solid var(--line);border-radius:14px;padding:12px;display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:16px;box-shadow:0 6px 24px #0f172a12}
+    @media(max-width:600px){.wrap{padding:14px 12px 40px}.hero{padding:23px 20px;border-radius:17px}.panel{padding:15px}.stickybar{align-items:stretch;flex-direction:column}.stickybar .btn{width:100%}}
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <header class="hero">
+    <div class="eyebrow">Engineering students · 5-minute speeches</div>
+    <h1>Choose your topic.</h1>
+    <p>Claim one topic for your speech. Topics marked as taken are reserved. You can change your selection later; your previous topic will become available again.</p>
+  </header>
+
+  <section class="panel" id="signinPanel">
+    <h2 style="margin:0 0 5px">Sign in to choose</h2>
+    <p class="muted" style="margin-top:0">Use your own Google account so your selection is linked to you.</p>
+    <div id="googleButton"></div>
+    <div id="signinMessage" class="notice"></div>
+  </section>
+
+  <main id="app" class="hidden">
+    <section class="panel">
+      <div class="row between">
+        <div><div class="muted small">SIGNED IN AS</div><strong id="signedEmail"></strong></div>
+        <button class="btn secondary" id="signOutBtn" type="button">Sign out</button>
+      </div>
+      <div class="row" style="margin-top:18px">
+        <div class="field"><label for="studentName">Your full name</label><input id="studentName" type="text" maxlength="100" placeholder="As it appears on the class list"></div>
+      </div>
+      <div id="currentChoice" class="notice info" style="display:block;margin-bottom:0">Loading your selection…</div>
+      <div id="appMessage" class="notice"></div>
+    </section>
+
+    <section class="panel">
+      <div class="row between"><div><h2 style="margin:0">Available topics</h2><p class="muted small" style="margin:4px 0 0">Select a topic, then confirm your choice.</p></div><div class="count" id="counts"></div></div>
+      <div class="toolbar"><input type="search" id="search" placeholder="Search topics…"><div class="tabs" id="categoryTabs"></div></div>
+      <div class="topic-list" id="topicList"></div>
+      <div class="stickybar"><div><strong id="pendingTitle">No new topic selected</strong><div class="muted small" id="pendingSub">Your current reservation will not change until you confirm.</div></div><button class="btn" id="confirmBtn" disabled>Confirm selection</button></div>
+    </section>
+  </main>
+  <footer class="muted small" style="text-align:center;padding:10px">Your Google email is used to prevent duplicate reservations. The class administrator can see selections in the management spreadsheet.</footer>
+</div>
+<script>
+  const CLIENT_ID = <?!= JSON.stringify(googleClientId) ?>;
+  let idToken = null, userData = null, pendingId = null, activeCategory = 'All';
+  const $ = id => document.getElementById(id);
+  const categories = ['All','A. Personal Growth & Mindset','B. Technology & Innovation','C. Workplace & Professional Skills','D. Society & Responsibility','E. Creative & Reflective Topics'];
+
+  function message(el, text, type) { el.className = 'notice ' + type; el.textContent = text; }
+  function clearMessage(el) { el.className = 'notice'; el.textContent = ''; }
+  function initGoogle() {
+    if (!CLIENT_ID) { message($('signinMessage'), 'The administrator has not configured Google sign-in. Please contact your class administrator.', 'error'); return; }
+    if (!window.google || !google.accounts || !google.accounts.id) { setTimeout(initGoogle, 250); return; }
+    google.accounts.id.initialize({client_id: CLIENT_ID, callback: onCredential, auto_select: false});
+    google.accounts.id.renderButton($('googleButton'), {theme:'outline',size:'large',shape:'pill',text:'signin_with',width:260});
+  }
+  function onCredential(response) {
+    idToken = response.credential;
+    loadData();
+  }
+  function loadData() {
+    clearMessage($('signinMessage'));
+    google.script.run.withSuccessHandler(data => {
+      userData = data;
+      $('signinPanel').classList.add('hidden');
+      $('app').classList.remove('hidden');
+      $('signedEmail').textContent = data.email;
+      $('studentName').value = data.name || '';
+      pendingId = data.myTopicId;
+      $('currentChoice').textContent = data.myTopic ? 'Your current topic: ' + data.myTopic : 'You have not selected a topic yet.';
+      $('currentChoice').className = 'notice info'; $('currentChoice').style.display = 'block';
+      render();
+    }).withFailureHandler(err => {
+      idToken = null;
+      message($('signinMessage'), err.message || 'Could not verify your Google account. Please try again.', 'error');
+    }).getTopicData(idToken);
+  }
+  function renderTabs() {
+    const box = $('categoryTabs'); box.innerHTML = '';
+    categories.forEach(c => {
+      const b = document.createElement('button'); b.type='button'; b.className='tab' + (activeCategory===c?' active':''); b.textContent=c==='All'?'All categories':c.replace(/^[A-E]\.\s*/, '');
+      b.onclick=()=>{activeCategory=c;renderTabs();renderTopics();}; box.appendChild(b);
+    });
+  }
+  function renderTopics() {
+    const list=$('topicList'); list.innerHTML='';
+    const query=$('search').value.trim().toLowerCase();
+    const topics=userData.topics.filter(t => (activeCategory==='All'||t.category===activeCategory) && (!query || (t.topic+' '+t.category).toLowerCase().includes(query)));
+    topics.forEach(t=>{
+      const card=document.createElement('label');
+      card.className='topic'+(t.taken&&!t.mine?' taken':'')+(pendingId===t.id?' selected':'')+(!t.taken||t.mine?' available':'');
+      const radio=document.createElement('input');radio.type='radio';radio.name='topic';radio.value=t.id;radio.checked=pendingId===t.id;radio.disabled=t.taken&&!t.mine;
+      radio.addEventListener('change',()=>{pendingId=t.id;updatePending();renderTopics();});
+      const body=document.createElement('div');body.style.flex='1';body.style.minWidth='0';
+      const cat=document.createElement('div');cat.className='topic-category';cat.textContent=t.category;
+      const title=document.createElement('div');title.className='topic-title';title.textContent=t.topic;
+      const state=document.createElement('span');state.className='state '+(t.mine?'mine':t.taken?'':'free');state.textContent=t.mine?'✓ Your topic':t.taken?'Taken':'Available';
+      body.append(cat,title,state);
+      if(t.taken&&!t.mine){const who=document.createElement('div');who.className='muted small';who.style.marginTop='5px';who.textContent=t.studentName?'Selected by '+t.studentName:'Already reserved';body.appendChild(who);}
+      card.append(radio,body);list.appendChild(card);
+    });
+    const available=userData.topics.filter(t=>!t.taken).length;
+    $('counts').textContent=available+' available · '+(userData.topics.length-available)+' reserved';
+    if(!topics.length){const p=document.createElement('p');p.className='muted';p.textContent='No topics match your search.';list.appendChild(p);}
+  }
+  function updatePending() {
+    const topic=userData.topics.find(t=>t.id===pendingId);
+    const current=userData.myTopicId;
+    $('pendingTitle').textContent=topic?topic.topic:'No topic selected';
+    $('pendingSub').textContent=!topic?'Choose a topic above.':topic.id===current?'This is your current reservation.':'Confirm to reserve this topic and release your previous one.';
+    $('confirmBtn').disabled=!topic||topic.id===current;
+  }
+  function render(){renderTabs();renderTopics();updatePending();}
+  $('search').addEventListener('input',renderTopics);
+  $('confirmBtn').addEventListener('click',()=>{
+    const name=$('studentName').value.trim();
+    if(!name){message($('appMessage'),'Enter your full name before confirming.','error');$('studentName').focus();return;}
+    $('confirmBtn').disabled=true;$('confirmBtn').textContent='Saving…';clearMessage($('appMessage'));
+    google.script.run.withSuccessHandler(result=>{
+      message($('appMessage'),result.message,'success');
+      $('confirmBtn').textContent='Confirm selection';
+      loadData();
+    }).withFailureHandler(err=>{
+      message($('appMessage'),err.message||'Could not save selection. Please try again.','error');
+      $('confirmBtn').textContent='Confirm selection';updatePending();
+      // Refresh availability in case another student claimed it at the same time.
+      google.script.run.withSuccessHandler(data=>{userData=data;pendingId=data.myTopicId;render();}).getTopicData(idToken);
+    }).selectTopic(idToken,pendingId,name);
+  });
+  $('signOutBtn').addEventListener('click',()=>{
+    idToken=null;userData=null;pendingId=null;
+    $('app').classList.add('hidden');$('signinPanel').classList.remove('hidden');
+    $('googleButton').innerHTML='';initGoogle();
+  });
+  initGoogle();
+</script>
+</body>
+</html>
