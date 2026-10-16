@@ -1,7 +1,6 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <base target="_top">
   <meta charset="utf-8">
   <script src="https://accounts.google.com/gsi/client" async defer></script>
   <style>
@@ -58,15 +57,47 @@
   <footer class="muted small" style="text-align:center;padding:10px">Your Google email is used to prevent duplicate reservations. The class administrator can see selections in the management spreadsheet.</footer>
 </div>
 <script>
-  const CLIENT_ID = <?!= JSON.stringify(googleClientId) ?>;
+  // Configure these two values before publishing on GitHub Pages.
+  const CLIENT_ID = '508137627118-gelnmhii01ci4vu9otlvnpi4l85pa1ii.apps.googleusercontent.com';
+  const API_URL = 'https://script.google.com/macros/s/AKfycbxN8ptpMfvfOrebctdflet50KrWQJ-ATa9xvJ89C2ppGA83zncvQSLBkLYZC3F5SrVuNg/exec';
   let idToken = null, userData = null, pendingId = null, activeCategory = 'All';
   const $ = id => document.getElementById(id);
   const categories = ['All','A. Personal Growth & Mindset','B. Technology & Innovation','C. Workplace & Professional Skills','D. Society & Responsibility','E. Creative & Reflective Topics'];
 
   function message(el, text, type) { el.className = 'notice ' + type; el.textContent = text; }
   function clearMessage(el) { el.className = 'notice'; el.textContent = ''; }
+
+  // Apps Script web apps do not provide ordinary CORS API responses.
+  // JSONP lets this static GitHub Pages site call the Apps Script endpoint.
+  function apiCall(action, params = {}) {
+    return new Promise((resolve, reject) => {
+      if (!API_URL || API_URL.includes('PASTE_YOUR_')) {
+        reject(new Error('The administrator has not configured the Apps Script API URL.'));
+        return;
+      }
+      const callbackName = 'topicApiCallback_' + Date.now() + '_' + Math.random().toString(36).slice(2);
+      const script = document.createElement('script');
+      const timeout = setTimeout(() => finish(new Error('The server took too long to respond. Please try again.')), 20000);
+      function cleanup() {
+        clearTimeout(timeout);
+        delete window[callbackName];
+        script.remove();
+      }
+      function finish(error, result) {
+        cleanup();
+        if (error) reject(error);
+        else if (!result || result.ok !== true) reject(new Error(result && result.error ? result.error : 'The request failed.'));
+        else resolve(result.data);
+      }
+      window[callbackName] = payload => finish(null, payload);
+      script.onerror = () => finish(new Error('Could not reach the Apps Script backend. Check the deployed /exec URL and deployment access.'));
+      const query = new URLSearchParams({ action, callback: callbackName, ...params });
+      script.src = API_URL + (API_URL.includes('?') ? '&' : '?') + query.toString();
+      document.head.appendChild(script);
+    });
+  }
   function initGoogle() {
-    if (!CLIENT_ID) { message($('signinMessage'), 'The administrator has not configured Google sign-in. Please contact your class administrator.', 'error'); return; }
+    if (!CLIENT_ID || CLIENT_ID.includes('PASTE_YOUR_')) { message($('signinMessage'), 'The administrator has not configured Google sign-in. Please contact your class administrator.', 'error'); return; }
     if (!window.google || !google.accounts || !google.accounts.id) { setTimeout(initGoogle, 250); return; }
     google.accounts.id.initialize({client_id: CLIENT_ID, callback: onCredential, auto_select: false});
     google.accounts.id.renderButton($('googleButton'), {theme:'outline',size:'large',shape:'pill',text:'signin_with',width:260});
@@ -77,7 +108,7 @@
   }
   function loadData() {
     clearMessage($('signinMessage'));
-    google.script.run.withSuccessHandler(data => {
+    apiCall('data', { token: idToken }).then(data => {
       userData = data;
       $('signinPanel').classList.add('hidden');
       $('app').classList.remove('hidden');
@@ -87,10 +118,10 @@
       $('currentChoice').textContent = data.myTopic ? 'Your current topic: ' + data.myTopic : 'You have not selected a topic yet.';
       $('currentChoice').className = 'notice info'; $('currentChoice').style.display = 'block';
       render();
-    }).withFailureHandler(err => {
+    }).catch(err => {
       idToken = null;
       message($('signinMessage'), err.message || 'Could not verify your Google account. Please try again.', 'error');
-    }).getTopicData(idToken);
+    });
   }
   function renderTabs() {
     const box = $('categoryTabs'); box.innerHTML = '';
@@ -133,16 +164,16 @@
     const name=$('studentName').value.trim();
     if(!name){message($('appMessage'),'Enter your full name before confirming.','error');$('studentName').focus();return;}
     $('confirmBtn').disabled=true;$('confirmBtn').textContent='Saving…';clearMessage($('appMessage'));
-    google.script.run.withSuccessHandler(result=>{
+    apiCall('select', { token: idToken, topicId: pendingId, studentName: name }).then(result=>{
       message($('appMessage'),result.message,'success');
       $('confirmBtn').textContent='Confirm selection';
       loadData();
-    }).withFailureHandler(err=>{
+    }).catch(err=>{
       message($('appMessage'),err.message||'Could not save selection. Please try again.','error');
       $('confirmBtn').textContent='Confirm selection';updatePending();
       // Refresh availability in case another student claimed it at the same time.
-      google.script.run.withSuccessHandler(data=>{userData=data;pendingId=data.myTopicId;render();}).getTopicData(idToken);
-    }).selectTopic(idToken,pendingId,name);
+      apiCall('data', { token: idToken }).then(data=>{userData=data;pendingId=data.myTopicId;render();}).catch(()=>{});
+    });
   });
   $('signOutBtn').addEventListener('click',()=>{
     idToken=null;userData=null;pendingId=null;
